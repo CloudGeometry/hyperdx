@@ -30,7 +30,7 @@ export function ListingRow({
   href: string;
   tags?: string[];
   onDelete?: (id: string) => void;
-  onDuplicate?: (id: string) => void;
+  onDuplicate?: () => void;
   leftSection?: React.ReactNode;
   updatedAt?: string;
   updatedBy?: string;
@@ -110,7 +110,7 @@ export function ListingRow({
                   leftSection={<IconCopy size={14} />}
                   onClick={e => {
                     e.stopPropagation();
-                    onDuplicate(id);
+                    onDuplicate();
                   }}
                 >
                   Duplicate

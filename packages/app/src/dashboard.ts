@@ -62,6 +62,21 @@ export type Dashboard = {
   provisioned?: boolean;
 };
 
+/** The fields the create endpoint accepts — the copy is built from exactly
+ *  these, an explicit allow-list. */
+type DuplicatedDashboard = Pick<
+  Dashboard,
+  | 'name'
+  | 'tiles'
+  | 'tags'
+  | 'filters'
+  | 'savedQuery'
+  | 'savedQueryLanguage'
+  | 'savedFilterValues'
+  | 'savedDateRange'
+  | 'containers'
+>;
+
 /**
  * Build the create payload for a copy of an existing dashboard (issue #1253).
  *
@@ -72,33 +87,27 @@ export type Dashboard = {
  * - Tile alerts are dropped (`config.alert` removed from every tile). A copy
  *   made in one click shouldn't silently start firing the original's alerts.
  * - Layout, tags, filters and the saved query/range/values are carried over.
- * - Server-owned fields (id, timestamps, authorship) and the machine-managed
- *   `provisioned` flag are omitted; the copy is a fresh, user-owned dashboard.
+ * - The payload is assembled from an explicit allow-list of createable fields,
+ *   not by subtracting known keys. A fetched dashboard also carries runtime-only
+ *   Mongoose keys (`_id`, `team`, `__v`) that aren't on the `Dashboard` type;
+ *   the server's non-strict schema wouldn't strip them, and forwarding the
+ *   source's `_id` would make the POST fail with an E11000 duplicate-key error.
  */
-export function duplicateDashboard(
-  dashboard: Dashboard,
-): Omit<Dashboard, 'id'> {
-  const {
-    id: _id,
-    createdAt: _createdAt,
-    updatedAt: _updatedAt,
-    createdBy: _createdBy,
-    updatedBy: _updatedBy,
-    provisioned: _provisioned,
-    name,
-    tags,
-    tiles,
-    ...rest
-  } = dashboard;
-
+export function duplicateDashboard(dashboard: Dashboard): DuplicatedDashboard {
   return {
-    ...rest,
-    name: `${name} (Copy)`,
-    tags: [...tags],
-    tiles: tiles.map(tile => {
-      const { alert: _alert, ...config } = tile.config;
+    name: `${dashboard.name} (Copy)`,
+    tags: [...(dashboard.tags ?? [])],
+    tiles: (dashboard.tiles ?? []).map(tile => {
+      const { alert: _alert, ...config } =
+        tile.config ?? ({} as SavedChartConfig);
       return { ...tile, id: makeId(), config };
     }),
+    filters: dashboard.filters,
+    savedQuery: dashboard.savedQuery,
+    savedQueryLanguage: dashboard.savedQueryLanguage,
+    savedFilterValues: dashboard.savedFilterValues,
+    savedDateRange: dashboard.savedDateRange,
+    containers: dashboard.containers,
   };
 }
 

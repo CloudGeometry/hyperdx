@@ -179,8 +179,14 @@ describe('getLocalDashboardTags', () => {
 });
 
 describe('duplicateDashboard', () => {
+  // Mirrors the real GET /dashboards response: alongside the typed fields it
+  // carries runtime-only Mongoose keys (`_id`, `team`, `__v`) that aren't on the
+  // `Dashboard` type, so the copy payload must not forward them.
   const makeDashboard = (overrides: Partial<Dashboard> = {}): Dashboard =>
     ({
+      _id: '507f1f77bcf86cd799439011',
+      team: '507f191e810c19729de860ea',
+      __v: 3,
       id: 'dash-1',
       name: 'Latency',
       tags: ['prod', 'team-a'],
@@ -207,6 +213,8 @@ describe('duplicateDashboard', () => {
       filters: [{ id: 'f1' }],
       savedQuery: 'level:error',
       savedQueryLanguage: 'lucene',
+      savedFilterValues: [{ id: 'f1', value: { included: ['prod'] } }],
+      savedDateRange: { from: 'now-1h', to: 'now' },
       containers: [{ id: 'c1', name: 'Group' }],
       createdAt: '2026-01-01T00:00:00Z',
       updatedAt: '2026-01-02T00:00:00Z',
@@ -250,13 +258,17 @@ describe('duplicateDashboard', () => {
     });
   });
 
-  it('carries tags, filters, saved query and containers', () => {
+  it('carries tags, filters, saved query/range/values and containers', () => {
     const copy = duplicateDashboard(makeDashboard());
 
     expect(copy.tags).toEqual(['prod', 'team-a']);
     expect(copy.filters).toEqual([{ id: 'f1' }]);
     expect(copy.savedQuery).toBe('level:error');
     expect(copy.savedQueryLanguage).toBe('lucene');
+    expect(copy.savedFilterValues).toEqual([
+      { id: 'f1', value: { included: ['prod'] } },
+    ]);
+    expect(copy.savedDateRange).toEqual({ from: 'now-1h', to: 'now' });
     expect(copy.containers).toEqual([{ id: 'c1', name: 'Group' }]);
   });
 
@@ -266,7 +278,7 @@ describe('duplicateDashboard', () => {
     expect(copy.tags).not.toBe(source.tags);
   });
 
-  it('omits server-owned and machine-managed fields', () => {
+  it('omits server-owned, machine-managed and runtime-only Mongoose fields', () => {
     const copy = duplicateDashboard(makeDashboard()) as Record<string, unknown>;
 
     expect(copy).not.toHaveProperty('id');
@@ -275,6 +287,27 @@ describe('duplicateDashboard', () => {
     expect(copy).not.toHaveProperty('createdBy');
     expect(copy).not.toHaveProperty('updatedBy');
     expect(copy).not.toHaveProperty('provisioned');
+    // The real GET response carries these; forwarding the source's `_id`
+    // would make the create POST fail with an E11000 duplicate-key error.
+    expect(copy).not.toHaveProperty('_id');
+    expect(copy).not.toHaveProperty('team');
+    expect(copy).not.toHaveProperty('__v');
+  });
+
+  it('does not throw on a dashboard with missing tags/tiles/config', () => {
+    const sparse = { name: 'Bare' } as unknown as Dashboard;
+    const copy = duplicateDashboard(sparse);
+
+    expect(copy.name).toBe('Bare (Copy)');
+    expect(copy.tags).toEqual([]);
+    expect(copy.tiles).toEqual([]);
+
+    const noConfig = {
+      name: 'NoConfig',
+      tags: [],
+      tiles: [{ id: 't', x: 0, y: 0, w: 4, h: 4 }],
+    } as unknown as Dashboard;
+    expect(() => duplicateDashboard(noConfig)).not.toThrow();
   });
 
   it('does not mutate the source dashboard', () => {

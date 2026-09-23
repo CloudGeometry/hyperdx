@@ -183,6 +183,9 @@ export default function DashboardsListPage() {
 
   const handleDuplicate = useCallback(
     (dashboard: Dashboard) => {
+      // Guard against rapid re-activation firing several creates (and racing
+      // Router.push calls) while one is already in flight.
+      if (createDashboard.isPending) return;
       createDashboard.mutate(duplicateDashboard(dashboard), {
         onSuccess: created => {
           notifications.show({
