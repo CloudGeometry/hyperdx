@@ -181,7 +181,9 @@ describe('getLocalDashboardTags', () => {
 describe('duplicateDashboard', () => {
   // Mirrors the real GET /dashboards response: alongside the typed fields it
   // carries runtime-only Mongoose keys (`_id`, `team`, `__v`) that aren't on the
-  // `Dashboard` type, so the copy payload must not forward them.
+  // `Dashboard` type, so the copy payload must not forward them. The cast is
+  // deliberate: the fixture uses simplified tile/filter/container shapes, so it
+  // is intentionally not the strict `Dashboard` contract.
   const makeDashboard = (overrides: Partial<Dashboard> = {}): Dashboard =>
     ({
       _id: '507f1f77bcf86cd799439011',
@@ -279,7 +281,7 @@ describe('duplicateDashboard', () => {
   });
 
   it('omits server-owned, machine-managed and runtime-only Mongoose fields', () => {
-    const copy = duplicateDashboard(makeDashboard()) as Record<string, unknown>;
+    const copy = duplicateDashboard(makeDashboard());
 
     expect(copy).not.toHaveProperty('id');
     expect(copy).not.toHaveProperty('createdAt');
