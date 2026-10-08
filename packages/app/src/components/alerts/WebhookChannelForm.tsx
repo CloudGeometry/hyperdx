@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Control, Controller } from 'react-hook-form';
-import { WebhookService } from '@hyperdx/common-utils/dist/types';
+import { IWebhook, WebhookService } from '@hyperdx/common-utils/dist/types';
 import { ComboboxData, Group, Select, Stack, Text } from '@mantine/core';
 import { IconWebhook } from '@tabler/icons-react';
 
@@ -8,13 +8,12 @@ import api from '@/api';
 import { getWebhookChannelIcon } from '@/utils/webhookIcons';
 import { getWebhookDetail } from '@/utils/webhooks';
 
-type Webhook = {
-  _id: string;
-  name: string;
-  service?: string;
-  url?: string;
-  description?: string;
-};
+// Derived from the canonical webhook shape rather than re-declared, so these
+// fields stay in sync with WebhookSchema (the type `api.useWebhooks` returns).
+type Webhook = Pick<
+  IWebhook,
+  '_id' | 'name' | 'service' | 'url' | 'description'
+>;
 
 // Stable reference so omitting `takenWebhookIds` doesn't create a new array
 // (and re-render loop) on every render.
